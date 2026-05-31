@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FakeShield AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+</head>
+<body>
+
+<div class="bg-animated">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+</div>
+
+<nav class="navbar">
+    <div class="nav-brand">
+        <div class="nav-logo">🛡️</div>
+        <div>
+            <span class="nav-title">FakeShield AI</span>
+            <span class="nav-beta">BETA</span>
+        </div>
+    </div>
+    <div class="nav-stats">
+        <span>🤖 AI Powered</span>
+        <span>⚡ Real-time</span>
+    </div>
+</nav>
+
+<div class="hero">
+    <div class="hero-badge">🤖 Powered by Machine Learning</div>
+    <h1>Detect <span class="gradient-text">Fake News</span><br>Before It Spreads.</h1>
+    <p class="hero-sub">Our AI analyzes news articles across 6 dimensions to verify authenticity in milliseconds.</p>
+</div>
+
+<div class="main-container">
+
+    <div class="analyzer-card">
+        <div class="card-header">
+            <span class="card-icon">📰</span>
+            <div>
+                <h3>News Analyzer</h3>
+                <p>Paste any article or headline</p>
+            </div>
+        </div>
+        <form method="POST" action="/">
+            <textarea name="news_text" placeholder="Paste your news article here..." maxlength="500">{{ news_text }}</textarea>
+            <div class="form-footer">
+                <span class="char-count" id="charCount">0/500</span>
+                <button type="submit" class="analyze-btn">🔍 Analyze Now</button>
+            </div>
+        </form>
+    </div>
+
+    {% if result %}
+    <div class="result-card {{ result.cls }}">
+        <div class="result-top">
+            <div class="result-icon-big">
+                {% if result.label == 'REAL' %}✅{% else %}🚨{% endif %}
+            </div>
+            <div class="result-info">
+                <h2>{% if result.label == 'REAL' %}Real News{% else %}Fake News Detected{% endif %}</h2>
+                <p>{% if result.label == 'REAL' %}This content appears to be legitimate{% else %}This content shows signs of misinformation{% endif %}</p>
+            </div>
+        </div>
+        <div class="confidence-section">
+            <div class="confidence-header">
+                <span>AI Confidence</span>
+                <span class="confidence-value">{{ result.confidence }}%</span>
+            </div>
+            <div class="confidence-track">
+                <div class="confidence-fill {{ result.cls }}" style="width: {{ result.confidence }}%"></div>
+            </div>
+        </div>
+        <div class="result-tags">
+            <span class="tag">🤖 ML Model</span>
+            <span class="tag">📊 TF-IDF Analysis</span>
+            <span class="tag">⚡ Instant Result</span>
+        </div>
+    </div>
+
+    <div class="feedback-section">
+        <p class="feedback-title">🎯 Was this result correct?</p>
+        <div class="feedback-buttons">
+            <button class="fb-btn correct" onclick="sendFeedback('correct')">👍 Yes, Correct</button>
+            <button class="fb-btn wrong" onclick="sendFeedback('wrong')">👎 No, Wrong</button>
+        </div>
+        <p class="feedback-thanks" id="feedbackMsg"></p>
+    </div>
+
+    <div class="helpful-section">
+        <p class="helpful-title">💬 Was this website helpful to you?</p>
+        <div class="helpful-buttons">
+            <button class="helpful-btn yes" onclick="sendHelpful('yes')">😊 Yes, Very Helpful!</button>
+            <button class="helpful-btn no" onclick="sendHelpful('no')">😕 Not Really</button>
+            <button class="helpful-btn maybe" onclick="sendHelpful('maybe')">🤔 Somewhat</button>
+        </div>
+        <p class="helpful-msg" id="helpfulMsg"></p>
+    </div>
+
+    <div class="like-comment-section" style="display:block">
+        <div class="name-row">
+            <input type="text" id="userName" placeholder="Enter your name..." maxlength="50" class="name-input">
+            <span id="nameError" class="name-error"></span>
+        </div>
+        <div class="like-row">
+            <button class="like-btn" onclick="toggleLike()">
+                <span id="likeIcon">🤍</span>
+                <span id="likeCount">0</span> Likes
+            </button>
+        </div>
+        <div class="comment-box">
+            <p class="comment-title">💬 Leave a Comment</p>
+            <textarea class="comment-input" id="commentInput" placeholder="Share your thoughts..." maxlength="200"></textarea>
+            <div class="comment-footer">
+                <span class="comment-count" id="commentCharCount">0/200</span>
+                <button class="comment-submit" onclick="submitComment()">Post Comment</button>
+            </div>
+        </div>
+        <div class="comments-list" id="commentsList"></div>
+    </div>
+
+    <div class="share-section">
+        <p class="share-title">🚀 Share FakeShield AI</p>
+        <div class="share-buttons">
+            <a href="https://wa.me/?text=Check%20out%20FakeShield%20AI!" target="_blank" class="share-btn whatsapp">💬 WhatsApp</a>
+            <a href="https://twitter.com/intent/tweet?text=Check%20out%20FakeShield%20AI!" target="_blank" class="share-btn twitter">🐦 Twitter</a>
+            <button class="share-btn copy" onclick="copyLink()">🔗 Copy Link</button>
+        </div>
+        <p class="copy-msg" id="copyMsg"></p>
+    </div>
+    {% endif %}
+
+    <div class="news-section">
+        <div class="section-header">
+            <h3>📡 Live News Feed</h3>
+            <span class="live-dot">● LIVE</span>
+        </div>
+        <div class="news-grid">
+            {% for item in news %}
+            <a href="{{ item.link }}" target="_blank" class="news-card">
+                <div class="news-source-badge">{{ item.source }}</div>
+                <p class="news-title">{{ item.title }}</p>
+                <span class="news-arrow">→</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<footer class="footer">
+    <p>🛡️ FakeShield AI — Fighting Misinformation with Technology</p>
+</footer>
+
+<script>
+    const NEWS_ID = parseInt("{{ result.id if result else 0 }}") || 0;
+
+    const textarea = document.querySelector('form textarea');
+    const charCount = document.getElementById('charCount');
+    if (textarea) {
+        charCount.textContent = textarea.value.length + '/500';
+        textarea.addEventListener('input', () => {
+            charCount.textContent = textarea.value.length + '/500';
+        });
+    }
+
+    const commentInput = document.getElementById('commentInput');
+    const commentCharCount = document.getElementById('commentCharCount');
+    if (commentInput) {
+        commentInput.addEventListener('input', () => {
+            commentCharCount.textContent = commentInput.value.length + '/200';
+        });
+    }
+
+    function getUserName() {
+        const nameEl = document.getElementById('userName');
+        if (!nameEl) return null;
+        const name = nameEl.value.trim();
+        if (!name) {
+            document.getElementById('nameError').textContent = '⚠️ Enter your name first!';
+            return null;
+        }
+        document.getElementById('nameError').textContent = '';
+        return name;
+    }
+
+    function sendFeedback(type) {
+        document.getElementById('feedbackMsg').textContent = '✅ Thank you for your feedback!';
+        document.querySelectorAll('.fb-btn').forEach(btn => btn.disabled = true);
+    }
+
+    function sendHelpful(type) {
+        const messages = {
+            'yes': '🎉 Awesome! Glad we could help!',
+            'no': '😔 Sorry! We will keep improving!',
+            'maybe': '🙏 Thank you! We will do better!'
+        };
+        document.getElementById('helpfulMsg').textContent = messages[type];
+        document.querySelectorAll('.helpful-btn').forEach(btn => btn.disabled = true);
+    }
+
+    async function toggleLike() {
+        const user_name = getUserName();
+        if (!user_name) return;
+        try {
+            const res = await fetch('/like', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_name, news_id: NEWS_ID })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('likeIcon').textContent = '❤️';
+                fetchLikes();
+            } else {
+                alert(data.error);
+            }
+        } catch (err) {
+            console.error('Like error:', err);
+        }
+    }
+
+    async function fetchLikes() {
+        if (NEWS_ID === 0) return;
+        try {
+            const res = await fetch('/get_likes/' + NEWS_ID);
+            const data = await res.json();
+            const el = document.getElementById('likeCount');
+            if (el) el.textContent = data.likes;
+        } catch (err) {
+            console.error('Fetch likes error:', err);
+        }
+    }
+
+    async function submitComment() {
+        const user_name = getUserName();
+        if (!user_name) return;
+        const comment_text = document.getElementById('commentInput').value.trim();
+        if (!comment_text) { alert('Comment empty hai!'); return; }
+        try {
+            const res = await fetch('/comment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_name, comment_text, news_id: NEWS_ID })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('commentInput').value = '';
+                document.getElementById('commentCharCount').textContent = '0/200';
+                fetchComments();
+            } else {
+                alert(data.error);
+            }
+        } catch (err) {
+            console.error('Comment error:', err);
+        }
+    }
+
+    async function fetchComments() {
+        if (NEWS_ID === 0) return;
+        try {
+            const res = await fetch('/get_comments/' + NEWS_ID);
+            const comments = await res.json();
+            const list = document.getElementById('commentsList');
+            if (!list) return;
+            if (!comments.length) {
+                list.innerHTML = '<p style="color:rgba(255,255,255,0.3);text-align:center;padding:10px">No comments yet — be the first! 💬</p>';
+                return;
+            }
+            list.innerHTML = comments.map(c => `
+                <div class="comment-item">
+                    <span class="comment-avatar">👤</span>
+                    <div>
+                        <strong style="font-size:13px;color:#a5b4fc">${c.user_name}</strong>
+                        <div class="comment-text">${c.comment_text}</div>
+                        <small style="color:rgba(255,255,255,0.3)">${c.commented_at}</small>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error('Fetch comments error:', err);
+        }
+    }
+
+    function copyLink() {
+        navigator.clipboard.writeText(window.location.href);
+        document.getElementById('copyMsg').textContent = '✅ Link Copied!';
+    }
+
+    // ✅ Sab functions define hone ke BAAD call karo
+    if (NEWS_ID > 0) {
+        fetchLikes();
+        fetchComments();
+    }
+</script>
+
+</body>
+</html>

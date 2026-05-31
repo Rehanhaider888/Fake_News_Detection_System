@@ -18,14 +18,8 @@ app.secret_key = os.getenv("SECRET_KEY", "fakenews123")
 
 # ================= DATABASE =================
 def get_db():
-    conn = psycopg2.connect(
-        host=os.getenv("PGHOST"),
-        database=os.getenv("PGDATABASE"),
-        user=os.getenv("PGUSER"),
-        password=os.getenv("PGPASSWORD"),
-        port=os.getenv("PGPORT", 5432),
-        sslmode="require"
-    )
+    database_url = os.getenv("DATABASE_URL")
+    conn = psycopg2.connect(database_url)
     return conn
 
 def init_db():
@@ -248,4 +242,4 @@ with app.app_context():
     init_db()
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)

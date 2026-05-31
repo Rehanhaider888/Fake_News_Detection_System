@@ -3,8 +3,9 @@ import feedparser
 import pandas as pd
 from datetime import datetime
 
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-from flask_mysqldb import MySQL
 from dotenv import load_dotenv
 
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -16,12 +17,48 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "fakenews123")
 
 # ================= DATABASE =================
-app.config["MYSQL_HOST"] = "localhost"
-app.config["MYSQL_USER"] = "root"
-app.config["MYSQL_PASSWORD"] = ""
-app.config["MYSQL_DB"] = "fake_news_db"
+def get_db():
+    conn = psycopg2.connect(
+        host=os.getenv("PGHOST"),
+        database=os.getenv("PGDATABASE"),
+        user=os.getenv("PGUSER"),
+        password=os.getenv("PGPASSWORD"),
+        port=os.getenv("PGPORT", 5432),
+        sslmode="require"
+    )
+    return conn
 
-mysql = MySQL(app)
+def init_db():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS feedback (
+            id SERIAL PRIMARY KEY,
+            news_text TEXT,
+            prediction VARCHAR(10),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS likes (
+            id SERIAL PRIMARY KEY,
+            news_id INTEGER,
+            user_name VARCHAR(100),
+            UNIQUE(news_id, user_name)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS comments (
+            id SERIAL PRIMARY KEY,
+            news_id INTEGER,
+            user_name VARCHAR(100),
+            comment_text TEXT,
+            commented_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
 
 # ================= ML MODEL =================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -68,45 +105,37 @@ def home():
         news_text = request.form.get("news_text", "").strip()
 
         if news_text:
-            words = news_text.split()
-            valid_word_count = sum(1 for w in words if len(w) >= 3)
-
-            if len(words) < 5 or valid_word_count < 4:
-                return render_template("home.html",
-                    invalid=True,
-                    invalid_msg="Please enter a valid news article or headline (at least 5 meaningful words).",
-                    news=news,
-                    news_text=news_text,
-                    result=None
-                )
-
             vec = vectorizer.transform([news_text])
             prediction = model.predict(vec)[0]
             decision = model.decision_function(vec)[0]
             confidence = round(min(abs(float(decision)) * 20, 100), 1)
 
-            cur = mysql.connection.cursor()
+            conn = get_db()
+            cur = conn.cursor()
             cur.execute(
-                "INSERT INTO feedback (news_text, prediction) VALUES (%s, %s)",
+                "INSERT INTO feedback (news_text, prediction) VALUES (%s, %s) RETURNING id",
                 (news_text[:500], prediction)
             )
-            mysql.connection.commit()
-            news_id = cur.lastrowid
+            news_id = cur.fetchone()[0]
+            conn.commit()
             cur.close()
+            conn.close()
 
             return redirect(url_for("result_page", news_id=news_id))
 
-    return render_template("home.html", result=None, news=news, news_text="", invalid=False, invalid_msg="")
+    return render_template("home.html", result=None, news=news, news_text="")
 
 # ================= RESULT PAGE =================
 @app.route("/result/<int:news_id>")
 def result_page(news_id):
     news = get_news()
 
-    cur = mysql.connection.cursor()
+    conn = get_db()
+    cur = conn.cursor()
     cur.execute("SELECT news_text, prediction FROM feedback WHERE id=%s", (news_id,))
     row = cur.fetchone()
     cur.close()
+    conn.close()
 
     if not row:
         return redirect(url_for("home"))
@@ -123,7 +152,7 @@ def result_page(news_id):
         "id": news_id
     }
 
-    return render_template("home.html", result=result, news=news, news_text=news_text, invalid=False, invalid_msg="")
+    return render_template("home.html", result=result, news=news, news_text=news_text)
 
 # ================= LIKE =================
 @app.route("/like", methods=["POST"])
@@ -136,13 +165,15 @@ def like():
         return jsonify({"error": "Invalid input"}), 400
 
     try:
-        cur = mysql.connection.cursor()
+        conn = get_db()
+        cur = conn.cursor()
         cur.execute(
             "INSERT INTO likes (news_id, user_name) VALUES (%s, %s)",
             (news_id, user_name)
         )
-        mysql.connection.commit()
+        conn.commit()
         cur.close()
+        conn.close()
         return jsonify({"message": "Liked"})
     except Exception:
         return jsonify({"error": "Already liked or DB error"}), 409
@@ -162,13 +193,15 @@ def comment():
         return jsonify({"error": "Too long"}), 400
 
     try:
-        cur = mysql.connection.cursor()
+        conn = get_db()
+        cur = conn.cursor()
         cur.execute(
             "INSERT INTO comments (news_id, user_name, comment_text) VALUES (%s,%s,%s)",
             (news_id, user_name, comment_text)
         )
-        mysql.connection.commit()
+        conn.commit()
         cur.close()
+        conn.close()
         return jsonify({"message": "Comment added"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -176,13 +209,15 @@ def comment():
 # ================= GET COMMENTS =================
 @app.route("/get_comments/<int:news_id>")
 def get_comments(news_id):
-    cur = mysql.connection.cursor()
+    conn = get_db()
+    cur = conn.cursor()
     cur.execute(
         "SELECT user_name, comment_text, commented_at FROM comments WHERE news_id=%s ORDER BY id DESC",
         (news_id,)
     )
     rows = cur.fetchall()
     cur.close()
+    conn.close()
 
     return jsonify([
         {
@@ -196,16 +231,21 @@ def get_comments(news_id):
 # ================= GET LIKES =================
 @app.route("/get_likes/<int:news_id>")
 def get_likes(news_id):
-    cur = mysql.connection.cursor()
+    conn = get_db()
+    cur = conn.cursor()
     cur.execute(
         "SELECT COUNT(*) FROM likes WHERE news_id=%s",
         (news_id,)
     )
     count = cur.fetchone()[0]
     cur.close()
+    conn.close()
 
     return jsonify({"likes": count})
 
 # ================= RUN =================
+with app.app_context():
+    init_db()
+
 if __name__ == "__main__":
     app.run(debug=True)

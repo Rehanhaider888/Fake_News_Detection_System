@@ -4,7 +4,6 @@ import pandas as pd
 from datetime import datetime
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from dotenv import load_dotenv
 
@@ -19,7 +18,9 @@ app.secret_key = os.getenv("SECRET_KEY", "fakenews123")
 # ================= DATABASE =================
 def get_db():
     database_url = os.getenv("DATABASE_URL")
-    conn = psycopg2.connect(database_url)
+    if not database_url:
+        raise Exception("DATABASE_URL not set")
+    conn = psycopg2.connect(database_url, sslmode="require")
     return conn
 
 def init_db():
@@ -239,7 +240,10 @@ def get_likes(news_id):
 
 # ================= RUN =================
 with app.app_context():
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        print("DB init failed:", e)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)

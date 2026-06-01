@@ -58,6 +58,8 @@ def init_db():
 # ================= ML MODEL =================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+print("Loading ML model...")
+
 fake_df = pd.read_csv(os.path.join(BASE_DIR, "Fake.csv"))
 true_df = pd.read_csv(os.path.join(BASE_DIR, "True.csv"))
 
@@ -73,6 +75,8 @@ y = df["label"]
 model = PassiveAggressiveClassifier(max_iter=50)
 model.fit(X, y)
 
+print("ML model loaded successfully!")
+
 # ================= RSS NEWS =================
 RSS_FEEDS = [
     "https://feeds.bbci.co.uk/news/rss.xml",
@@ -82,13 +86,16 @@ RSS_FEEDS = [
 def get_news():
     news_list = []
     for url in RSS_FEEDS:
-        feed = feedparser.parse(url)
-        for entry in feed.entries[:3]:
-            news_list.append({
-                "title": entry.title,
-                "link": entry.link,
-                "source": feed.feed.get("title", "News")
-            })
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:3]:
+                news_list.append({
+                    "title": entry.title,
+                    "link": entry.link,
+                    "source": feed.feed.get("title", "News")
+                })
+        except Exception as e:
+            print(f"RSS feed error: {e}")
     return news_list
 
 # ================= HOME =================
@@ -242,8 +249,10 @@ def get_likes(news_id):
 with app.app_context():
     try:
         init_db()
+        print("DB initialized successfully!")
     except Exception as e:
         print("DB init failed:", e)
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

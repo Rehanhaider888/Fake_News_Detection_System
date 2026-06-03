@@ -68,11 +68,11 @@ true_df["label"] = "REAL"
 
 df = pd.concat([fake_df, true_df]).sample(frac=1, random_state=42)
 
-vectorizer = TfidfVectorizer(stop_words="english", max_features=8000)
+vectorizer = TfidfVectorizer(stop_words="english", max_features=50000)
 X = vectorizer.fit_transform(df["text"])
 y = df["label"]
 
-model = PassiveAggressiveClassifier(max_iter=50)
+model = PassiveAggressiveClassifier(max_iter=500)
 model.fit(X, y)
 
 print("ML model loaded successfully!")
